@@ -105,6 +105,9 @@
     * avg_
   * 不同语义意味着迁移成本
 
+## clickhouse和hdfs高可用的比较
+![对比](../drawio/clickhouse/compare.svg "compare")
+
 ## 附录
  - [clickhouse架构](https://clickhouse.com/docs/zh/concepts/core-concepts/academic-overview#page-12-6)
    - 学习和认识clickhouse最好的资料
