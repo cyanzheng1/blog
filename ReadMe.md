@@ -45,6 +45,9 @@
 - prometheus
 - grafana
 - OpenTelemetry
+
+### 论文解读
+- [MonetDB/X100: Hyper-Pipelining Query Execution](./bigdata/monet_db_paper.md)
   
 ### 关于AI
  - 杂谈：主要是在使用AI，特别是vibe coding的过程和AI产生冲突，以及和AI沟通过程中的一些心得、感想
@@ -53,6 +56,8 @@
    - AI对框架的懂与刻意避开
    - AI在能量、能源上与人类未来可能的冲突
  - SKILL的探索
+### 论文阅读
+* [MonetDB/X100: Hyper-Pipelining Query Execution](./bigdata/monet_db_paper.md)
 ## 内容的思路
 ```
 整体的思路可能会以思考点驱动（无论幼稚还是成熟的），比如click house和Hbase支持使用LSM作为存储方案，很多资料提到查询性能很高，但LSM的特点以日志方式记录变更，这意味着查询的时候有read放大的问题，范围查询也用不上bloom过滤，所以查询快到底怎么做到的，以及使用的时候要避免什么才能达到预期的快？
