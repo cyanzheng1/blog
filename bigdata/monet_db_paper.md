@@ -224,9 +224,77 @@ Aggr(
     * 连接这一段我没有太看明白，里面提到的Positional Join和Rowid,以及有效性
   ![MonetDB/X100](./pic/X100_join.png)
 
-## 向量化的原语(Vectorized Primitives)
+### 向量化的原语(Vectorized Primitives)
 * 采用列向量布局，自由度很低，只需要了解其所操作的列，无需了解整个表的数据布局
-* 待补充
+* C编译器能够识别出X100的向量化原语是在固定且相互独立的数组上进行操作，使得编译器能够实施激进的循环流水线优化(loop-pipelining)
+  * 例子:下面的Sel可以是Null也可以是select数组，包含n个被选择的position位置信息（可以理解成位置指针），X100所有的向量化原语都支持传入这一类的选择向量，优点：不需要将选中的数据复制到新的连续内存块里面去。tips:vector的数据都在cpu缓存里，随机取数的行为发生在cpu缓存里面。
+```
+map_plus_double_col_double_col(int n,
+  double*__restrict__ res,
+  double*__restrict__ col1, double*__restrict__ col2,
+  int*__restrict__ sel)
+{
+  if (sel) {
+    for(int j=0;j<n; j++) {
+      int i = sel[j];
+      res[i] = col1[i] + col2[i];
+    }
+  } else {
+    for(int i=0;i<n; i++)
+      res[i] = col1[i] + col2[i];
+  }
+}
+``` 
+* X100包含几百种向量化原语，这几百种向量化原语由编译时生成
+  * 使用宏展开脚本，编译时根据传入的不同的数据类型生成对应的expression方法
+  * 还能支持单值和数组，数组和数组，数组和单值，单值和单值的排列组合运算生成
+  * 支持复合原语，且复合原语比单一功能的向量化原语快2倍：简单的二院运算运算都需要加载数据的操作（现代cpu通常在每个时钟周期内仅能执行1到2次加载存储），但复杂原语可以直接把上一次计算结果直接传递给下一步计算。
+
+### Data Storage(存储方案)
+### MonetDB/X100 采用的是垂直存储方式
+* MonetDB的BAT采用的是连续的大文件存储方式
+* ColumnBM会将这些文件划分为较大的数据块（>1M）
+### 优点
+前面大篇幅描述的是优点：支持向量化操作,需要查询哪个列加载哪个列（不需要加载全部列数据），很好的压缩性能
+### 缺点
+* 更新、删除、新增不方便
+  * 一般将垂直分片处理成不可变的分片
+  * 常见的删除方案，用额外的列表存储删除信息
+  * 插入操作使用独立的增量列进行追加（将所有增量列存储在同一个数据块），相当于PAX布局（按行）
+  * 定时merge增量更新（参考clickhouse的方案）
+* 索引
+  * 支持索引，索引内容参考clickhouse提供的方案
+
+## TPC-H Experiment
+### 实验基本内容
+- TPC-H 22组query测试，SF(1/100)
+- MonetDB/MIL
+  - 运行环境：AthlonMP platform (1533MHz, 1GB RAM,Linux2.4) 
+  - SF：1,尽量保持in-memory result，测试过程中不产生I/O
+  - 数据大小：~1GB
+- MonetDB/X100
+  - 运行环境：Itanium2 1.3GHz (3MB cache) server with 12GB RAM running Linux2.4
+  - SF：1/100
+  - 数据大小：~0.8GB，可以用的字段上使用了enumeration type达到了减少数据大小的效果
+- DB2
+  - 运行环境：MAXDATA Platinum 9000-4R, a server machine with four 1.5GHz (6MB cache)，SCSI磁盘
+- 索引
+  - 同时使用外键
+  - order表使用了日期排序
+  - customers/spupliers两张表使用了region和country排序
+- ![结果](./pic/TPC-H_performance.png)
+
+### Query 1性能
+前面说过X100由于没有RAM bandwidth瓶颈，处理速度能达到7.5GB/s
+### vector size 影响
+- 最优的向量大小大概1000
+- 当L1/L2/L3 cache无法容纳缓存的时候性能显著下降。
+- 向量大小到了4M（400万）时，X100和MIL的性能相似
+- X100的性能更好，还和他没有额外的join操作（基于流式处理，连接的时候直接使用指针指向，而非生成一层一层中间态，并且额外进行数据拷贝）
+
+## 结尾
+* 结尾讨论了下DB2的实现方法，没有细看
+* 总体：X100将valcano模型、列式存储、向量化查询结合了起来，并且在实现的过程中进行了查询指令的优化，比如大部分指令支持sel参数(简化了select的上下文切换，同时通过指针的方式代替了内存拷贝)，另外通过编译脚本动态编译生成不同类型的instruction集合，限制了指令的扩展能力，也简化了process流程的逻辑。
 
 ## 感悟
 1. 论文的整个实验过程很严谨，包括用hard-code的C代码作为实验的baseline，很值得学习。
