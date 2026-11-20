@@ -1,7 +1,7 @@
 ## 论文下载
 MonetDB/X100: Hyper-Pipelining Query Execution [下载](https://www.cidrdb.org/cidr2005/papers/P19.pdf)<br>
 年份：2005<br>
-读论文的模式：半翻译 半查找资料
+读论文的模式：翻译/摘要/思考
 ## TPC-H benchmark
 论文是基于TPC-H做的基准测试，TPC-H模拟了一个全球性批发供应商业务系统，一共8张关系型表（customer, orders, lineitem, part, partsupp, supplier, nation, region），采用雪花架构/范式设计，数据量最大的表lineitem可达60亿数据，设计有22个复杂的即席查询。查询的性能指标主要是QphH(Composite Query-per-Hour Performance Metric)
 * 论文使用数据量：on the full TPC-H benchmark of size 100GB
@@ -9,12 +9,10 @@ MonetDB/X100: Hyper-Pipelining Query Execution [下载](https://www.cidrdb.org/c
   * [TPC-H Benchmark](https://doris.apache.org/zh-CN/docs/3.x/benchmark/tpch)
   * [从TPC-H 看数据库查询执行的挑战：TPC-H Analyzed: Hidden Messages and Lessons Learned from an Influential Benchmark](https://zhuanlan.zhihu.com/p/635977033)
   * [TPC-C 、TPC-H、TPC-DS和SSB测试基准（Benchmark）介绍](https://blog.csdn.net/bluishglc/article/details/128191244)
-
 ## 背景
 * 开篇指出了，关系性数据库，即便在处理密集查询业务时，对CPU的使用效率很低，根本原因在于传统的关系性数据库习惯了让cpu一次处理一个元组的模式（tuple-at-a-time）,使得编译器没法发掘CPU并行执行的机会
 * MonetDB/MIL在执行单列运算的时候不会遇到tuple-at-a-time的问题，但是执行满列运算的时候会出现大数据流(中间数据)的现象，由于内存带宽限制导致CPU的使用效率大幅下降
 * 论文为MonetDB重新设计和实现了查询引擎,命名X100。X100是基于向量化查询的查询引擎
-
 ## CPUs是怎么工作的
 * 摩尔定律：1965年戈登*摩尔提出的摩尔定律，我们的cpu芯片性能或晶体管数量每两年翻一番：1.4^n（需要说明一下2026年我们处在后摩尔时代，去年华为提出了韬定律从逻辑折叠的角度驱动芯片工艺的发展）
 * 现代CPU将流水线（pipeline）模式引入到指令运算中，将一个指令拆分成多个stage，经典的5级pipeline包含取指/译码/执行/访存/写回5个stage
@@ -70,8 +68,6 @@ margin: auto;
 - 数据量: 1GB，可以通过sclaing Factor(SF)对数据进行放大
 - table: lineitem
 - 数据对数：6M
-
-
 ### sql
 ```
 SELECT l_returnflag, l_linestatus,
@@ -89,20 +85,17 @@ FROM lineitem
 WHERE l_shipdate <= date ’1998-09-02’
 GROUP BY l_returnflag, l_linestatus
 ```
-
 ### 火山模型（volcano）
 - 也称迭代器模型，是数据库查询执行引擎的经典架构
 - 核心原理
   - 算子抽象：filter/project/join/aggregation/scan,这些操作抽象为独立的算子，组合成算子树
   - 统一接口：open()/next()/close()
   - 上层算子向下层算子请求数据，下层算子每次通常返回一条元组（Tuple）供上层处理
-  
 ### 传统关系代数的困境 
 - 关系性代数对于参数通常会有很高的自由度，即便是简单的搜索查询，只有在查询发生时才会收到完整的查询信息，所以在设计的时候需要能够兼顾任意的场景
   - 这样的设计会导致核心计算所耗费的时间在实际查询过程中的占比很少（10%），另外28%用在聚合操作的哈希表的穿件和查找，剩下的62%花在了数据遍历上面，其他的像锁开销和缓冲页分配占比不大（基于mysql的分析）
   - 另外一个问题时类似于Item_func_plus:val这样的计算，每次加法使用38个指令，38/0.8=49个cycle,4个需要互相等待的指令，每个指令耗费20个cycle ,剩下的29个消耗在jumpint,push/pop stack的栈调用上
   - 大部分的关系性数据库观察到的现象和mysql类似
-
 ### MonetDB/ML
 - 基本概念
   - MonetDB基于列式存储，每列对应一个binary association table(BAT),包含[oid,value]
@@ -143,13 +136,11 @@ for(int i=0; i<n; i++) {
         entry->sum_charge += extprice*(1-p_tax[i]);
 }}}
 ```
-
 ## Monet X100: A Vectorized Query Processor
 ### 目标
 1. 基于高cpu使用率的前提下执行大规模数据查询
 2. 能够扩展到其他的应用领域包括：数据挖掘和多媒体检索
 3. 能够自适应和支持最底层（磁盘）数据量的扩大
-
 ### 需要克服的计算机架构瓶颈
 * DISK: X100旨在实现高效的顺序数据访问，为了降低带宽需求，采用垂直分片的数据布局，并且在某些情况辅以轻量压缩(列式存储+压缩)
 * RAM: 内存里面也采用了垂直分区和压缩的磁盘布局，对内存的访问时通过显示的内存到缓存，缓存到内存的路由来执行（包含针对特定平台的优化：SSE预取指令和数据移动汇编指令）
@@ -249,7 +240,6 @@ map_plus_double_col_double_col(int n,
   * 使用宏展开脚本，编译时根据传入的不同的数据类型生成对应的expression方法
   * 还能支持单值和数组，数组和数组，数组和单值，单值和单值的排列组合运算生成
   * 支持复合原语，且复合原语比单一功能的向量化原语快2倍：简单的二院运算运算都需要加载数据的操作（现代cpu通常在每个时钟周期内仅能执行1到2次加载存储），但复杂原语可以直接把上一次计算结果直接传递给下一步计算。
-
 ### Data Storage(存储方案)
 ### MonetDB/X100 采用的是垂直存储方式
 * MonetDB的BAT采用的是连续的大文件存储方式
@@ -283,7 +273,6 @@ map_plus_double_col_double_col(int n,
   - order表使用了日期排序
   - customers/spupliers两张表使用了region和country排序
 - ![结果](./pic/TPC-H_performance.png)
-
 ### Query 1性能
 前面说过X100由于没有RAM bandwidth瓶颈，处理速度能达到7.5GB/s
 ### vector size 影响
@@ -291,17 +280,13 @@ map_plus_double_col_double_col(int n,
 - 当L1/L2/L3 cache无法容纳缓存的时候性能显著下降。
 - 向量大小到了4M（400万）时，X100和MIL的性能相似
 - X100的性能更好，还和他没有额外的join操作（基于流式处理，连接的时候直接使用指针指向，而非生成一层一层中间态，并且额外进行数据拷贝）
-
 ## 结尾
 * 结尾讨论了下DB2的实现方法，没有细看
 * 总体：X100将valcano模型、列式存储、向量化查询结合了起来，并且在实现的过程中进行了查询指令的优化，比如大部分指令支持sel参数(简化了select的上下文切换，同时通过指针的方式代替了内存拷贝)，另外通过编译脚本动态编译生成不同类型的instruction集合，限制了指令的扩展能力，也简化了process流程的逻辑。
-
 ## 感悟
 1. 论文的整个实验过程很严谨，包括用hard-code的C代码作为实验的baseline，很值得学习。
 2. 其实2005年的Monet X100就已经希望能兼容多媒体检索，放在现在对应上多模态的思维
-
 ## 附录
 * [MonetDB/X100: a (very) fast column-store](https://www.youtube.com/watch?v=yrLd-3lnZ58)
-
 * [Cpu设计之流水线---pipeline（深度讲解篇）](https://zhuanlan.zhihu.com/p/632266519)
 * [MonetDB/X100: Hyper-Pipelining Query Execution 知乎解读](https://zhuanlan.zhihu.com/p/457709699)
