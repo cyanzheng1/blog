@@ -301,8 +301,9 @@ map_plus_double_col_double_col(int n,
 2. 其实2005年的Monet X100就已经希望能兼容多媒体检索，放在现在对应上多模态的思维
 
 ## 附录
-*[MonetDB/X100: a (very) fast column-store](https://www.youtube.com/watch?v=yrLd-3lnZ58)
-*[Cpu设计之流水线---pipeline（深度讲解篇）](https://zhuanlan.zhihu.com/p/632266519)
+* [MonetDB/X100: a (very) fast column-store](https://www.youtube.com/watch?v=yrLd-3lnZ58)
+
+* [Cpu设计之流水线---pipeline（深度讲解篇）](https://zhuanlan.zhihu.com/p/632266519)
 
 
 
