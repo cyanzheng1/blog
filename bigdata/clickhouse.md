@@ -34,6 +34,11 @@
     * 多分片并行：按照CPU内核数并行
     * 多服务器并行：每个节点并行计算，结果由发起的节点汇总
 ## 向量化运算
+- [clickhouse的向量化运算采用的是Monet的向量化运算方法](./monet_db_paper.md)
+  - 列式存储
+  - volcano vector pipeline
+  - 索引
+  - 另外clickhouse本身的数据存储是有序的
 
 ## 分布式
 ```
@@ -78,7 +83,27 @@
   * 物化视图，需要用新的表承接，需要维护新的schema。使用的人需要了解schema的基本信息
   * 同步and异步：写数据时投影的写入时异步的，可能会存在查出的数据不是最新数据状态的问题，物化视图是同步的，但是ReplacingMergeTree也有历史数据的问题（用FINAL解决）?
 * 注意：无论是物化视图、跳数索引、投影都不是越多越好，一来增加存储成本 二来增加写入成本 另外不合理的跳数索引反而会带来处理跳数索引本身的查询开销
-## 多模态存储和向量化搜索
+### 人工智能和机器学习
+#### 向量化搜索
+- 支持向量搜索
+  - 查询和写入需要自己手动转换embedding信息
+  - 使用L2Distance计算相似度
+- 向量搜索模式
+  - 暴力向量搜索：N条数据需要进行N次相似度计算，并且完成排序。数据量大的情况下几乎不可用，但没有召回率的问题
+  - 近似最近邻（ANN搜索），最经典的是[HNSW](https://zhuanlan.zhihu.com/p/673027535)
+  - Qbit: 将位拆开来按列存储，取出来的时候再进行逆转置（不需要全部取出，比如指定了16位，就只取16位），重建每个数字高分位部分。之后在进行相似度运算
+#### 多模态
+- clickhouse支持json，也支持数据存储成array的格式，可以将多模态应用到clickhouse上面去，但并非原生支持
+#### AI驱动的sql生成
+- clickhouse 25.7 client和local支持接入大语言模型，[进行sql的自动生成](https://clickhouse.com/docs/zh/guides/use-cases/ai-ml/ai-powered-sql-generation)
+- 直接支持anthropic或openai的配置，[也支持自定配置：deepseek/本地大模型/私服](https://clickhouse.com/docs/zh/concepts/features/interfaces/client#ai-sql-generation-configuration)
+#### Langfuse Cloud 
+- [进行LLM模型实时分析和数据追踪](https://clickhouse.com/docs/zh/guides/use-cases/ai-ml/import-langfuse-trace-data)
+#### 集成MCP
+- [clickhouse提供了clickhouse-mcp和一些系列的agent](https://clickhouse.com/docs/zh/guides/use-cases/ai-ml/MCP)
+
+#### 相关的安全问题
+这个很模糊，后面在MCP/Agent相关的文章里面分析，提一下顾虑：AI出现之前，数据安全和信息安全虽然不能被企业真正完美执行，有些企业甚至是皇帝的新衣。但即便如此这件衣服的破损指出来的时候，依然会让人面有愧色。但当人类在面对claude/openai/chatgpt/deepseek这一类的模型，似乎因为慕强出现了集体失明和噤声，为了尽可能让强者能够run smoothly几乎是全线放开。在这种情况下传统的信息安全是否会成为伪命题，毕竟很多企业在此之前也只是穿着皇帝的新衣，我对这个困惑的。
 
 ## 接口
 
@@ -176,4 +201,7 @@
  - [keeper recovery](https://raw.githubusercontent.com/OneUptime/blog/refs/heads/master/posts/2026-03-31-clickhouse-keeper-quorum-recovery/README.md#1%231)
  - [clickhouse github doc](https://github.com/ClickHouse/ClickHouse/tree/master/docs)
  - [clickhouse向量化运算](https://chistadata.com/clickhouse-vectorized-query-processing/#Does_the_JIT_replace_vectorization)
+ - [HNSW算法的基本原理及使用](https://zhuanlan.zhihu.com/p/673027535)
+ - [大白话理解HNSW](https://juejin.cn/post/7082579087776022541)
+ - [Hierarchical Navigable Small Worlds (HNSW)](https://www.pinecone.io/learn/series/faiss/hnsw/) 
  - [源码解读](https://zhuanlan.zhihu.com/p/512314306#1)
